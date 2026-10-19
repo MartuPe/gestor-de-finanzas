@@ -47,6 +47,12 @@ public sealed class Account : Entity, IAggregateRoot
 
     public CreditLine? CreditLine { get; private set; }
 
+    public string? Color { get; private set; }
+
+    public string? Icon { get; private set; }
+
+    public int SortOrder { get; private set; }
+
     public DateTimeOffset? ArchivedAt { get; private set; }
 
     public bool IsCredit => Kind == AccountKind.Credit;
@@ -128,6 +134,20 @@ public sealed class Account : Entity, IAggregateRoot
         Name = cleanName;
         return Result.Success();
     }
+
+    public Result ChangeAppearance(string? color, string? icon)
+    {
+        if (color is not null && !Text.IsHexColor(color))
+        {
+            return AccountErrors.InvalidColor;
+        }
+
+        Color = color;
+        Icon = Text.Clean(icon);
+        return Result.Success();
+    }
+
+    public void ChangeSortOrder(int sortOrder) => SortOrder = sortOrder;
 
     /// <summary>La cuenta se cerró: deja de mostrarse, pero conserva su historia.</summary>
     public void Archive(DateTimeOffset at) => ArchivedAt ??= at;

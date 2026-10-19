@@ -484,3 +484,6 @@ $RECYCLE.BIN/
 # Datos financieros personales: no se versionan
 *.xlsx
 ~$*.xlsx
+
+# Secretos locales (contraseña del SQL Server de Docker)
+.env

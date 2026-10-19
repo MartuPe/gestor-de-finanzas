@@ -34,7 +34,12 @@ gestor-de-finanzas/
 ├─ tests/
 │  ├─ Finanzas.Domain.Tests/
 │  ├─ Finanzas.Architecture.Tests/
+│  ├─ Finanzas.Infrastructure.Tests/   Persistencia contra SQL Server real (Testcontainers)
 │  └─ Finanzas.Api.IntegrationTests/
+├─ compose.yaml                   SQL Server local en Docker
+├─ .env.example                   Plantilla de la contraseña de sa (el .env real no se versiona)
+├─ dotnet-tools.json              dotnet-ef fijado como herramienta local
+├─ global.json                    SDK de .NET y runner de tests
 ├─ Directory.Build.props          net10.0, Nullable, TreatWarningsAsErrors
 ├─ Directory.Packages.props       Versiones centralizadas de paquetes
 └─ Finanzas.slnx
@@ -239,19 +244,20 @@ En la capa gratuita, la app **escala a cero**: si nadie la usa, no hay proceso c
 
 ## 7. Persistencia (EF Core)
 
-- **Contexto:** un `FinanzasDbContext`, con una `IEntityTypeConfiguration<T>` por entidad.
-- **Convenciones globales:**
-  - enums guardados como string;
-  - precisión `decimal(18,2)` y `(18,6)`;
-  - `RowVersion` como token de concurrencia;
-  - GUID secuenciales.
-- **Interceptores:**
-  - `AuditInterceptor` completa `CreatedAt` y `UpdatedAt`.
-  - `SoftDeleteInterceptor` convierte los `DELETE` en `DeletedAt`.
+- **Contexto:** un `FinanzasDbContext`, con una `IEntityTypeConfiguration<T>` por entidad (`Infrastructure/Persistence/Configurations`).
+- **Convenciones globales** (`ConfigureConventions`):
+  - enums guardados como string en snake_case;
+  - `Period` guardado como `date` (día 1 del mes);
+  - `DateTimeOffset` guardado en `datetime2(3)` y en UTC;
+  - precisión `decimal(18,2)`, y `(18,6)` para las cotizaciones.
+- **Auditoría:** `CreatedAt`, `UpdatedAt`, `DeletedAt` y `RowVersion` son *shadow properties*: el dominio no las conoce. Las completa un único `AuditInterceptor`, que además convierte los `DELETE` en borrado lógico.
+- **Agregados completos:** las cuotas y las etiquetas de un movimiento se cargan siempre con él (`AutoInclude`).
 - **Filtros globales con nombre** (EF Core 10):
-  - `SoftDelete` y `Ledger` se definen por separado, así se puede apagar uno solo (por ejemplo, el importador o un "deshacer borrado" ignoran `SoftDelete`).
+  - `SoftDelete` ya está aplicado a todas las tablas auditadas.
+  - `Ledger` se agrega junto con el login. Al estar separados, se puede apagar uno solo (por ejemplo, un "deshacer borrado" ignora `SoftDelete`).
+- **Cascadas:** solo las cuotas y las etiquetas de un movimiento (más los tipos owned). El resto de las FKs son `Restrict`, porque SQL Server no admite varios caminos de cascada hacia una misma tabla.
 - **Restricciones del modelo:** los `CHECK` van con `HasCheckConstraint` y los índices filtrados con `HasFilter`. Así, toda la §4 del modelo queda versionada en las migraciones.
-- **Migraciones:** code-first. En producción se aplican con un *migration bundle* (`dotnet ef migrations bundle`) desde el pipeline, nunca al arrancar la app.
+- **Migraciones:** code-first, en `Infrastructure/Persistence/Migrations`. La Api es el proyecto de inicio de `dotnet ef`. En producción se aplican con un *migration bundle* (`dotnet ef migrations bundle`) desde el pipeline, nunca al arrancar la app.
 - **Resiliencia:** `EnableRetryOnFailure`. Azure SQL serverless puede tardar alrededor de un minuto en despertar después de una pausa, y el reintento cubre ese tiempo.
 
 ---
@@ -277,6 +283,7 @@ En la capa gratuita, la app **escala a cero**: si nadie la usa, no hay proceso c
 |---|---|---|
 | Dominio | xUnit | R1–R12 con casos reales del Excel: Perfume Lu 2/3, Perfume mamá 30.000/30.000/31.600, Patagonia PES + USD, Claude cubierto con dólares, aguinaldo cada 6 meses |
 | Arquitectura | NetArchTest | Las referencias permitidas de §2 |
+| Persistencia | EF Core + Testcontainers (SQL Server real en Docker) | Guardar y leer agregados completos, enums en snake_case, borrado lógico, `CHECK` y `UNIQUE` del modelo, concurrencia |
 | Integración | `WebApplicationFactory` + Testcontainers (SQL Server real en Docker) | Endpoints de punta a punta, `CHECK` / `UNIQUE`, idempotencia, concurrencia, filtros por libro |
 | Test de oro | Importador + comparación | El disponible de cada mes contra la celda `K` del Excel, salvo en los meses afectados por la §8 del modelo |
 
@@ -286,7 +293,7 @@ En la capa gratuita, la app **escala a cero**: si nadie la usa, no hay proceso c
 
 | Entorno | Componentes |
 |---|---|
-| **Local** | SQL Server en Docker (imagen oficial `mcr.microsoft.com/mssql/server`) · API con `dotnet watch` · Scalar en `/scalar` |
+| **Local** | SQL Server 2025 en Docker (`compose.yaml`, contraseña en `.env`) · cadena de conexión en los user-secrets de la Api · API con `dotnet watch` · Scalar en `/scalar` |
 | **CI** | GitHub Actions: build y tests (incluidos los de Testcontainers) → imagen del contenedor → `ghcr.io` → migration bundle → deploy |
 | **Producción** | **Azure Container Apps** (plan de consumo): escala a cero, cubierto por la capa gratuita mensual y con dominio propio y certificado gratis · **Azure SQL Database** con la oferta gratuita (serverless, con pausa automática) |
 

@@ -13,6 +13,9 @@ public static class AccountErrors
     public static readonly Error UseCreateCredit =
         Error.Rule("account.use_create_credit", "Las cuentas de crédito se crean con los datos de la tarjeta o del crédito.");
 
+    public static readonly Error InvalidColor =
+        Error.Validation("account.invalid_color", "El color tiene que tener el formato #RRGGBB.");
+
     public static readonly Error InvalidIssuer =
         Error.Validation("account.invalid_issuer", $"Indicá el emisor (banco o empresa), hasta {CreditLine.IssuerMaxLength} caracteres.");
 

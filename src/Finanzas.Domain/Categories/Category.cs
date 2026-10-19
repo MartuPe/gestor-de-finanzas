@@ -46,6 +46,8 @@ public sealed class Category : Entity, IAggregateRoot
     /// <summary>No se puede borrar, como "Ajuste" o "Rendimientos".</summary>
     public bool IsSystem { get; private set; }
 
+    public int SortOrder { get; private set; }
+
     public static Result<Category> Create(
         Guid id,
         Guid ledgerId,
@@ -70,6 +72,8 @@ public sealed class Category : Entity, IAggregateRoot
         Name = cleanName;
         return Result.Success();
     }
+
+    public void ChangeSortOrder(int sortOrder) => SortOrder = sortOrder;
 
     private static Result<Category> CreateCore(
         Guid id,

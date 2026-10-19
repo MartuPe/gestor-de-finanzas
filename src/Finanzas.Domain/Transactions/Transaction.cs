@@ -332,8 +332,11 @@ public sealed class Transaction : Entity, IAggregateRoot
             return TransactionErrors.TagFromAnotherLedger;
         }
 
-        _tags.Clear();
-        foreach (var tagId in list.Select(tag => tag.Id).Distinct())
+        // Se aplican solo las diferencias: borrar y volver a crear la misma etiqueta
+        // en un mismo guardado choca con la clave (TransactionId, TagId).
+        var wanted = list.Select(tag => tag.Id).ToHashSet();
+        _tags.RemoveAll(tag => !wanted.Contains(tag.TagId));
+        foreach (var tagId in wanted.Where(tagId => !_tags.Exists(tag => tag.TagId == tagId)))
         {
             _tags.Add(new TransactionTag(Id, tagId));
         }

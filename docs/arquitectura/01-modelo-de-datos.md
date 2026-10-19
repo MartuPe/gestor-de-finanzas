@@ -81,9 +81,11 @@ erDiagram
 | `DeletedAt` | `datetime2(3)` | sí | Borrado lógico. Un filtro global de EF Core lo excluye |
 | `RowVersion` | `rowversion` | no | Concurrencia optimista: si el mismo registro se edita desde el celular y desde la PC, el segundo guardado recibe un conflicto en lugar de pisar al primero |
 
-**Enums.** Se guardan como `varchar(20)` con un `CHECK`, y en EF Core se mapean con `HasConversion<string>()`. Se leen bien directo en la base y no se rompen si se reordena el enum.
+Las tablas de unión (`LedgerMembers`, `TransactionTags`) no tienen `DeletedAt`. Si se borra lógicamente lo que las contiene, sus filas se conservan, así un "deshacer" recupera también las etiquetas.
 
-**Multiusuario.** Toda tabla raíz tiene `LedgerId`, y EF Core aplica un filtro global por el libro del usuario autenticado.
+**Enums.** Se guardan como `varchar(20)` en snake_case (`TransactionKind.CardPayment` → `card_payment`), con un `CHECK` que lista los valores válidos. Se leen bien directo en la base y no se rompen si se reordena el enum.
+
+**Multiusuario.** Toda tabla raíz tiene `LedgerId`. El filtro global de EF Core por el libro del usuario autenticado se agrega junto con el login.
 
 ---
 
@@ -112,7 +114,7 @@ erDiagram
 | Columna | Tipo | Null | Notas |
 |---|---|---|---|
 | `LedgerId` | `uniqueidentifier` | no | PK compuesta, FK |
-| `UserId` | `uniqueidentifier` | no | PK compuesta, FK |
+| `UserId` | `uniqueidentifier` | no | PK compuesta. La FK a `Users` se agrega junto con ASP.NET Core Identity |
 | `Role` | `varchar(20)` | no | `owner` · `editor` · `viewer` |
 
 ### 4.4 `Currencies`
@@ -187,7 +189,7 @@ Un resumen por línea de crédito y por mes de vencimiento.
 | Columna | Tipo | Null | Notas |
 |---|---|---|---|
 | `Id` | `uniqueidentifier` | no | PK |
-| `CreditAccountId` | `uniqueidentifier` | no | FK a `CreditLines` |
+| `CreditAccountId` | `uniqueidentifier` | no | FK a `Accounts`. EF Core no admite FK hacia una tabla owned como `CreditLines`, que de todos modos tiene la misma clave |
 | `Period` | `date` | no | Día 1 del **mes de vencimiento**. `CHECK (DAY(Period) = 1)` |
 | `ClosingDate` | `date` | sí | Null en líneas sin cierre |
 | `DueDate` | `date` | no | |

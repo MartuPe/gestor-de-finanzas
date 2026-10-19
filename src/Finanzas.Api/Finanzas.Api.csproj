@@ -1,4 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <UserSecretsId>3c103ebc-d764-4fef-aa3c-e6c41c63411f</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Solo para las herramientas de dotnet ef: la Api es el proyecto de inicio de las migraciones. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Finanzas.Application\Finanzas.Application.csproj" />
