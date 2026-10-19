@@ -17,12 +17,12 @@ public sealed class SqlServerFixture : IAsyncLifetime
 {
     private readonly MsSqlContainer _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-latest").Build();
 
-    private string _connectionString = string.Empty;
+    public string ConnectionString { get; private set; } = string.Empty;
 
     public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
-        _connectionString = new SqlConnectionStringBuilder(_container.GetConnectionString())
+        ConnectionString = new SqlConnectionStringBuilder(_container.GetConnectionString())
         {
             InitialCatalog = "FinanzasTests",
         }.ConnectionString;
@@ -33,7 +33,7 @@ public sealed class SqlServerFixture : IAsyncLifetime
 
     public FinanzasDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<FinanzasDbContext>()
-            .UseSqlServer(_connectionString)
+            .UseSqlServer(ConnectionString)
             .AddInterceptors(new AuditInterceptor(TimeProvider.System))
             .Options);
 

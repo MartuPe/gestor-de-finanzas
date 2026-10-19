@@ -7,10 +7,16 @@ public enum ErrorType
     NotFound,
     Conflict,
     BusinessRule,
+
+    /// <summary>Falló un servicio externo (por ejemplo, la cotización).</summary>
+    Unavailable,
 }
 
-/// <summary>Un error esperado. El código no cambia, para que el front lo pueda traducir.</summary>
-public sealed record Error(string Code, string Message, ErrorType Type)
+/// <summary>
+/// Un error esperado. El código no cambia, para que el front lo pueda traducir.
+/// No es sealed: Application lo extiende para los errores de validación con detalle por campo.
+/// </summary>
+public record Error(string Code, string Message, ErrorType Type)
 {
     public static Error Validation(string code, string message) => new(code, message, ErrorType.Validation);
 
@@ -19,4 +25,6 @@ public sealed record Error(string Code, string Message, ErrorType Type)
     public static Error Conflict(string code, string message) => new(code, message, ErrorType.Conflict);
 
     public static Error Rule(string code, string message) => new(code, message, ErrorType.BusinessRule);
+
+    public static Error Unavailable(string code, string message) => new(code, message, ErrorType.Unavailable);
 }

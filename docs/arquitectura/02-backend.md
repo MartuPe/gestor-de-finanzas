@@ -98,25 +98,30 @@ Una transferencia **no** es un agregado guardado: `TransferFactory` crea las dos
 
 ### 2.2 `Application`
 
-Está organizada por feature: cada caso de uso es una carpeta con su comando o consulta, su validador y su handler.
+Está organizada por feature: cada caso de uso es una carpeta con su comando o consulta, su validador, su respuesta y su handler. Los marcados con ✓ ya están implementados y testeados.
 
 ```
 Finanzas.Application/
-├─ Abstractions/    Repositorios por agregado, IUnitOfWork, ICurrentUser,
-│                   IExchangeRateProvider, consultas de lectura (IMonthSummaryQuery, …)
-├─ Expenses/RegisterExpense/
-├─ Incomes/RegisterIncome/
-├─ Transfers/RegisterTransfer/
-├─ Statements/PayStatement/  UpdateStatementDates/
-├─ Transactions/ConfirmPlanned/  EditInstallments/  ...
+├─ Abstractions/    ICurrentUser, IUnitOfWork, repositorios (Repositories.cs)
+│                   y lectores de consulta (Readers.cs)
+├─ Common/          Errores, validación, idempotencia, búsquedas acotadas al libro
+├─ ExchangeRates/   ExchangeRateService (R9 + actualización a demanda), contratos de fuente y almacén
+├─ Expenses/RegisterExpense/          ✓
+├─ Incomes/RegisterIncome/            ✓
+├─ Transfers/RegisterTransfer/        ✓
+├─ Statements/PayStatement/           ✓    UpdateStatementDates/ (R5)
+├─ Transactions/ConfirmPlanned/       ✓    EditInstallments/
+├─ Recurring/GenerateRecurring/       ✓
 ├─ Accounts/ReconcileAccount/
-├─ Months/GetMonthSummary/
-├─ CreditLines/GetDebtSchedule/
-└─ Reports/GetSpending/  GetCashflow/
+├─ Months/GetMonthSummary/            ✓
+├─ CreditLines/GetDebtSchedule/       ✓
+└─ Reports/GetSpending/               ✓    GetCashflow/
 ```
 
-- **Escritura:** repositorios por agregado (`Get`, `Add`) + `IUnitOfWork`. `Application` no conoce EF Core.
-- **Lectura:** interfaces de consulta que devuelven DTOs y que implementa `Infrastructure`, con LINQ `AsNoTracking` o con `SqlQuery<T>` para los reportes pesados.
+- **Handlers sin MediatR:** cada handler es una clase con `HandleAsync` que devuelve `Result<T>`, y la Api lo llama directo.
+- **Escritura:** repositorios por agregado + `IUnitOfWork`. `Application` no conoce EF Core. `IUnitOfWork.SaveChangesAsync` devuelve los conflictos (concurrencia, duplicados) como `Result`, no como excepciones.
+- **Lectura:** *lectores* (`IMonthReader`, `IStatementReader`, `ISpendingReader`) que implementa `Infrastructure`. Hacen las sumas en SQL y devuelven datos planos; el handler los combina con las reglas del dominio. Por ejemplo, el disponible lo calcula siempre `AvailableToSpendCalculator`.
+- **Libro actual:** todo se acota al libro de `ICurrentUser`. Lo que es de otro libro se responde como "no encontrado".
 - **Tiempo:** se usa `TimeProvider`, más la `TimeZone` del libro. "Hoy" siempre se calcula en hora de Argentina.
 
 ### 2.3 Ejemplo de flujo: compra con tarjeta en 3 cuotas
@@ -234,7 +239,7 @@ En la capa gratuita, la app **escala a cero**: si nadie la usa, no hay proceso c
 
 | Tarea | A demanda | Programado | Detalle |
 |---|---|---|---|
-| Cotizaciones | Al pedir una cotización, si la última tiene más de 30 min (en horario de mercado) | Container Apps Job diario, 18:30 (hora AR) | Upsert en `ExchangeRates` desde DolarApi |
+| Cotizaciones | Al pedir la cotización de hoy, si la guardada tiene más de 30 min. Si DolarApi falla, se usa la última conocida y su fecha va en la respuesta | Container Apps Job diario, 18:30 (hora AR) | Upsert en `ExchangeRates` desde DolarApi, con la fecha local de Argentina |
 | Histórico de cotizaciones | — | Una vez, desde el importador | ArgentinaDatos desde 2025-09-01 |
 | Fijos previstos | `EnsureGeneratedThrough(period)` al abrir un mes | El mismo job diario | Idempotente gracias al `UNIQUE` (R7) |
 | Resúmenes estimados | Al asignar cuotas (R4) | — | |
@@ -284,6 +289,7 @@ En la capa gratuita, la app **escala a cero**: si nadie la usa, no hay proceso c
 | Dominio | xUnit | R1–R12 con casos reales del Excel: Perfume Lu 2/3, Perfume mamá 30.000/30.000/31.600, Patagonia PES + USD, Claude cubierto con dólares, aguinaldo cada 6 meses |
 | Arquitectura | NetArchTest | Las referencias permitidas de §2 |
 | Persistencia | EF Core + Testcontainers (SQL Server real en Docker) | Guardar y leer agregados completos, enums en snake_case, borrado lógico, `CHECK` y `UNIQUE` del modelo, concurrencia |
+| Casos de uso | Application + Infrastructure armadas como en la Api, contra el mismo SQL Server, con reloj fijo y DolarApi simulada | La pantalla de octubre 2026 contra la celda `K10` del Excel, idempotencia, gasto por categoría y etiqueta (R10), deuda por tarjeta, fijos a demanda, cotizaciones |
 | Integración | `WebApplicationFactory` + Testcontainers (SQL Server real en Docker) | Endpoints de punta a punta, `CHECK` / `UNIQUE`, idempotencia, concurrencia, filtros por libro |
 | Test de oro | Importador + comparación | El disponible de cada mes contra la celda `K` del Excel, salvo en los meses afectados por la §8 del modelo |
 
