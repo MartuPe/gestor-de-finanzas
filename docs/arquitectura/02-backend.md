@@ -324,4 +324,4 @@ Monitoreo: logs estructurados, `/health` para los *health checks* y, opcionalmen
 
 - [ ] **Nombre** de la app y de la solución (hoy se usa `Finanzas` como provisorio).
 - [ ] **Dominio definitivo**, antes de registrar las passkeys: sirve el gratuito de Azure o uno propio.
-- [ ] **Repositorio git + GitHub**, necesario para el CI/CD.
+- [x] **Repositorio git + GitHub**: `github.com/MartuPe/gestor-de-finanzas` (privado), creado el 2026-10-19.

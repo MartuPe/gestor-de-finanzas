@@ -420,3 +420,4 @@ La app las elimina por diseño, y conviene revisarlas antes de importar.
 - [x] **Etiquetas** (§4.13): confirmadas el 2026-10-18.
 - [ ] **Dólares:** dónde están (efectivo, caja de ahorro en USD, Mercado Pago). Define las cuentas en USD.
 - [ ] **Sueldo:** día de cobro. Define el `DayOfMonth` de la plantilla.
+- [ ] **Tarjetas:** días reales de cierre y vencimiento de Visa, Mastercard, Patagonia y Mercado Crédito. Los de los tests son supuestos.
