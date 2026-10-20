@@ -1,5 +1,23 @@
 using Finanzas.Application;
 using Finanzas.Application.Abstractions;
+using Finanzas.Application.Accounts;
+using Finanzas.Application.Accounts.CreateAccount;
+using Finanzas.Application.Accounts.CreateCreditAccount;
+using Finanzas.Application.Accounts.ListAccounts;
+using Finanzas.Application.Accounts.SetOpeningBalance;
+using Finanzas.Application.Categories;
+using Finanzas.Application.Categories.CreateCategory;
+using Finanzas.Application.Categories.ListCategories;
+using Finanzas.Application.Ledgers;
+using Finanzas.Application.Ledgers.CreateLedger;
+using Finanzas.Application.Recurring;
+using Finanzas.Application.Recurring.CreateRecurringTemplate;
+using Finanzas.Application.Recurring.ListRecurringTemplates;
+using Finanzas.Application.Recurring.UpdateRecurringTemplate;
+using Finanzas.Application.Tags;
+using Finanzas.Application.Tags.SaveTag;
+using Finanzas.Application.Transactions.GetTransaction;
+using Finanzas.Application.Transactions.ListTransactions;
 using Finanzas.Application.Common;
 using Finanzas.Application.CreditLines.GetDebtSchedule;
 using Finanzas.Application.ExchangeRates;
@@ -61,6 +79,49 @@ internal sealed class App : IAsyncDisposable
     }
 
     public static App For(SqlServerFixture fixture, TestLedger data) => For(fixture, data.Ledger.Id);
+
+    public Task<Result<LedgerSettingsResponse>> CreateLedgerAsync(CreateLedgerCommand command, CancellationToken cancellationToken) =>
+        Run<CreateLedgerHandler, Result<LedgerSettingsResponse>>(handler => handler.HandleAsync(command, cancellationToken));
+
+    public Task<Result<Registration<AccountResponse>>> CreateAccountAsync(CreateAccountCommand command, CancellationToken cancellationToken) =>
+        Run<CreateAccountHandler, Result<Registration<AccountResponse>>>(handler => handler.HandleAsync(command, cancellationToken));
+
+    public Task<Result<Registration<AccountResponse>>> CreateCreditAccountAsync(CreateCreditAccountCommand command, CancellationToken cancellationToken) =>
+        Run<CreateCreditAccountHandler, Result<Registration<AccountResponse>>>(handler => handler.HandleAsync(command, cancellationToken));
+
+    public Task<Result<Registration<TransactionResponse>>> SetOpeningBalanceAsync(SetOpeningBalanceCommand command, CancellationToken cancellationToken) =>
+        Run<SetOpeningBalanceHandler, Result<Registration<TransactionResponse>>>(handler => handler.HandleAsync(command, cancellationToken));
+
+    public Task<Result<IReadOnlyList<AccountResponse>>> ListAccountsAsync(CancellationToken cancellationToken) =>
+        Run<ListAccountsHandler, Result<IReadOnlyList<AccountResponse>>>(handler => handler.HandleAsync(cancellationToken));
+
+    public Task<Result<Registration<CategoryResponse>>> CreateCategoryAsync(CreateCategoryCommand command, CancellationToken cancellationToken) =>
+        Run<CreateCategoryHandler, Result<Registration<CategoryResponse>>>(handler => handler.HandleAsync(command, cancellationToken));
+
+    public Task<Result<IReadOnlyList<CategoryResponse>>> ListCategoriesAsync(CancellationToken cancellationToken) =>
+        Run<ListCategoriesHandler, Result<IReadOnlyList<CategoryResponse>>>(handler => handler.HandleAsync(cancellationToken));
+
+    public Task<Result<Registration<TagResponse>>> SaveTagAsync(SaveTagCommand command, CancellationToken cancellationToken) =>
+        Run<SaveTagHandler, Result<Registration<TagResponse>>>(handler => handler.HandleAsync(command, cancellationToken));
+
+    public Task<Result<Registration<RecurringTemplateResponse>>> CreateRecurringTemplateAsync(
+        CreateRecurringTemplateCommand command,
+        CancellationToken cancellationToken) =>
+        Run<CreateRecurringTemplateHandler, Result<Registration<RecurringTemplateResponse>>>(handler => handler.HandleAsync(command, cancellationToken));
+
+    public Task<Result<RecurringTemplateResponse>> UpdateRecurringTemplateAsync(
+        UpdateRecurringTemplateCommand command,
+        CancellationToken cancellationToken) =>
+        Run<UpdateRecurringTemplateHandler, Result<RecurringTemplateResponse>>(handler => handler.HandleAsync(command, cancellationToken));
+
+    public Task<Result<IReadOnlyList<RecurringTemplateResponse>>> ListRecurringTemplatesAsync(CancellationToken cancellationToken) =>
+        Run<ListRecurringTemplatesHandler, Result<IReadOnlyList<RecurringTemplateResponse>>>(handler => handler.HandleAsync(cancellationToken));
+
+    public Task<Result<TransactionPage>> ListTransactionsAsync(ListTransactionsQuery query, CancellationToken cancellationToken) =>
+        Run<ListTransactionsHandler, Result<TransactionPage>>(handler => handler.HandleAsync(query, cancellationToken));
+
+    public Task<Result<TransactionResponse>> GetTransactionAsync(Guid id, CancellationToken cancellationToken) =>
+        Run<GetTransactionHandler, Result<TransactionResponse>>(handler => handler.HandleAsync(id, cancellationToken));
 
     public Task<Result<Registration<TransactionResponse>>> RegisterExpenseAsync(RegisterExpenseCommand command, CancellationToken cancellationToken) =>
         Run<RegisterExpenseHandler, Result<Registration<TransactionResponse>>>(handler => handler.HandleAsync(command, cancellationToken));

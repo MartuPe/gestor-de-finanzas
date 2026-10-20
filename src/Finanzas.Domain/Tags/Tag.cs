@@ -41,7 +41,7 @@ public sealed class Tag : Entity, IAggregateRoot
         return new Tag(id, ledgerId, cleanName, color);
     }
 
-    public Result Rename(string name)
+    public Result Update(string name, string? color)
     {
         var cleanName = Text.Clean(name);
         if (cleanName is null || cleanName.Length > NameMaxLength)
@@ -49,7 +49,13 @@ public sealed class Tag : Entity, IAggregateRoot
             return TagErrors.InvalidName;
         }
 
+        if (color is not null && !Text.IsHexColor(color))
+        {
+            return TagErrors.InvalidColor;
+        }
+
         Name = cleanName;
+        Color = color;
         return Result.Success();
     }
 }

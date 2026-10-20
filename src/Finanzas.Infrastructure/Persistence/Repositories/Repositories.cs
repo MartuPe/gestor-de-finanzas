@@ -16,6 +16,8 @@ internal sealed class LedgerRepository(FinanzasDbContext db) : ILedgerRepository
 {
     public Task<Ledger?> GetAsync(Guid id, CancellationToken cancellationToken) =>
         db.Ledgers.SingleOrDefaultAsync(ledger => ledger.Id == id, cancellationToken);
+
+    public void Add(Ledger ledger) => db.Ledgers.Add(ledger);
 }
 
 internal sealed class AccountRepository(FinanzasDbContext db) : IAccountRepository
@@ -25,6 +27,8 @@ internal sealed class AccountRepository(FinanzasDbContext db) : IAccountReposito
 
     public async Task<IReadOnlyList<Account>> ListAsync(Guid ledgerId, CancellationToken cancellationToken) =>
         await db.Accounts.Where(account => account.LedgerId == ledgerId).ToListAsync(cancellationToken);
+
+    public void Add(Account account) => db.Accounts.Add(account);
 }
 
 internal sealed class CategoryRepository(FinanzasDbContext db) : ICategoryRepository
@@ -34,15 +38,22 @@ internal sealed class CategoryRepository(FinanzasDbContext db) : ICategoryReposi
 
     public async Task<IReadOnlyList<Category>> ListAsync(Guid ledgerId, CancellationToken cancellationToken) =>
         await db.Categories.Where(category => category.LedgerId == ledgerId).ToListAsync(cancellationToken);
+
+    public void AddRange(IEnumerable<Category> categories) => db.Categories.AddRange(categories);
 }
 
 internal sealed class TagRepository(FinanzasDbContext db) : ITagRepository
 {
+    public Task<Tag?> GetAsync(Guid id, CancellationToken cancellationToken) =>
+        db.Tags.SingleOrDefaultAsync(tag => tag.Id == id, cancellationToken);
+
     public async Task<IReadOnlyList<Tag>> ListAsync(Guid ledgerId, CancellationToken cancellationToken) =>
         await db.Tags.Where(tag => tag.LedgerId == ledgerId).ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Tag>> GetManyAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken) =>
         await db.Tags.Where(tag => ids.Contains(tag.Id)).ToListAsync(cancellationToken);
+
+    public void Add(Tag tag) => db.Tags.Add(tag);
 }
 
 internal sealed class StatementRepository(FinanzasDbContext db) : IStatementRepository
@@ -99,6 +110,13 @@ internal sealed class TransactionRepository(FinanzasDbContext db) : ITransaction
             .ToHashSet();
     }
 
+    public Task<bool> HasOpeningAsync(Guid accountId, string currency, CancellationToken cancellationToken) =>
+        db.Transactions.AnyAsync(
+            transaction => transaction.AccountId == accountId
+                && transaction.Currency == currency
+                && transaction.Kind == TransactionKind.Opening,
+            cancellationToken);
+
     public void Add(Transaction transaction) => db.Transactions.Add(transaction);
 
     public void AddRange(IEnumerable<Transaction> transactions) => db.Transactions.AddRange(transactions);
@@ -106,8 +124,16 @@ internal sealed class TransactionRepository(FinanzasDbContext db) : ITransaction
 
 internal sealed class RecurringTemplateRepository(FinanzasDbContext db) : IRecurringTemplateRepository
 {
+    public Task<RecurringTemplate?> GetAsync(Guid id, CancellationToken cancellationToken) =>
+        db.RecurringTemplates.SingleOrDefaultAsync(template => template.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<RecurringTemplate>> ListAsync(Guid ledgerId, CancellationToken cancellationToken) =>
+        await db.RecurringTemplates.Where(template => template.LedgerId == ledgerId).ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<RecurringTemplate>> ListActiveAsync(Guid ledgerId, CancellationToken cancellationToken) =>
         await db.RecurringTemplates
             .Where(template => template.LedgerId == ledgerId && template.IsActive)
             .ToListAsync(cancellationToken);
+
+    public void Add(RecurringTemplate template) => db.RecurringTemplates.Add(template);
 }

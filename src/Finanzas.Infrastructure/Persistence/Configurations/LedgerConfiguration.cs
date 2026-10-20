@@ -1,5 +1,6 @@
 using Finanzas.Domain.Common;
 using Finanzas.Domain.Ledgers;
+using Finanzas.Infrastructure.Identity;
 using Finanzas.Infrastructure.Persistence.Conventions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -22,14 +23,13 @@ internal sealed class LedgerConfiguration : IEntityTypeConfiguration<Ledger>
         builder.Property(ledger => ledger.ReferenceRateSource).HasMaxLength(20).IsUnicode(false);
         builder.Property(ledger => ledger.TimeZone).HasMaxLength(64).IsUnicode(false);
 
-        // La FK de UserId a Users se agrega con ASP.NET Core Identity (02-backend §5).
         builder.OwnsMany(ledger => ledger.Members, members =>
         {
             members.ToTable("LedgerMembers", table =>
                 table.HasCheckConstraint("CK_LedgerMembers_Role", Sql.In<LedgerRole>(nameof(LedgerMember.Role))));
             members.WithOwner().HasForeignKey(member => member.LedgerId);
             members.HasKey(member => new { member.LedgerId, member.UserId });
-            members.HasIndex(member => member.UserId);
+            members.HasOne<AppUser>().WithMany().HasForeignKey(member => member.UserId);
         });
         builder.Navigation(ledger => ledger.Members).UsePropertyAccessMode(PropertyAccessMode.Field);
     }

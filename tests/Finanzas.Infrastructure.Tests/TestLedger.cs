@@ -72,9 +72,11 @@ internal sealed class TestLedger
 
     public static async Task<TestLedger> CreateAsync(SqlServerFixture fixture, CancellationToken cancellationToken)
     {
-        var data = new TestLedger(Ledger.Create(Guid.NewGuid(), "Mis finanzas", Guid.NewGuid()).Value);
+        var ownerId = Guid.NewGuid();
+        var data = new TestLedger(Ledger.Create(Guid.NewGuid(), "Mis finanzas", ownerId).Value);
 
         await using var db = fixture.CreateContext();
+        db.Users.Add(TestUsers.New(ownerId));
         db.Ledgers.Add(data.Ledger);
         db.Accounts.AddRange(
             data.Banco, data.MercadoPago, data.Ahorro, data.Dolares, data.Visa, data.Mastercard, data.Patagonia, data.MercadoCredito);

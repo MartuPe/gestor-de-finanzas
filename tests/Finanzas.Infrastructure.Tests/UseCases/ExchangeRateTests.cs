@@ -103,8 +103,12 @@ public class ExchangeRateTests(SqlServerFixture fixture)
     }
 
     /// <summary>Un día al azar del pasado, a las 15 h de Argentina, para no pisar las cotizaciones de otros tests.</summary>
+    /// <summary>
+    /// Desde 2010 hasta 2023: Argentina tuvo horario de verano hasta marzo de 2009 (UTC−2) y desde entonces es siempre UTC−3,
+    /// así las 23:30 de un test no caen en el día siguiente. Tampoco se pisa con las fechas fijas de los otros tests (2025-2026).
+    /// </summary>
     private static DateTimeOffset UnDiaCualquiera() =>
-        new DateTimeOffset(2001, 1, 1, 15, 0, 0, TimeSpan.FromHours(-3)).AddDays(Random.Shared.Next(0, 8_000));
+        new DateTimeOffset(2010, 1, 1, 15, 0, 0, TimeSpan.FromHours(-3)).AddDays(Random.Shared.Next(0, 5_000));
 
     private static ExchangeQuote Blue(decimal sell, DateTimeOffset updatedAt) =>
         new(CurrencyCodes.Usd, ExchangeRateSources.Blue, sell - 20m, sell, updatedAt);

@@ -148,6 +148,31 @@ public sealed class RecurringTemplate : Entity, IAggregateRoot
     /// <summary>Fecha del movimiento en ese mes. El día 31 en febrero es el último día de febrero.</summary>
     public DateOnly OccurrenceDate(Period period) => period.Day(DayOfMonth);
 
+    /// <summary>
+    /// Corrige lo que cambia con el tiempo: el monto (el sueldo aumenta), el día o la fecha de fin.
+    /// Los previstos ya generados no se tocan; el cambio vale desde el próximo mes que se genere.
+    /// </summary>
+    public Result Update(string description, decimal estimatedAmount, int dayOfMonth, DateOnly? endsOn)
+    {
+        var cleanDescription = Text.Clean(description);
+        if (cleanDescription is null || cleanDescription.Length > DescriptionMaxLength)
+        {
+            return RecurringErrors.InvalidDescription;
+        }
+
+        var error = ValidateSchedule(new Money(estimatedAmount, Currency), Interval, dayOfMonth, StartsOn, endsOn);
+        if (error is not null)
+        {
+            return error;
+        }
+
+        Description = cleanDescription;
+        EstimatedAmount = estimatedAmount;
+        DayOfMonth = dayOfMonth;
+        EndsOn = endsOn;
+        return Result.Success();
+    }
+
     public void Deactivate() => IsActive = false;
 
     public void Activate() => IsActive = true;

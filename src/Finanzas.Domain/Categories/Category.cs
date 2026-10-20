@@ -73,6 +73,18 @@ public sealed class Category : Entity, IAggregateRoot
         return Result.Success();
     }
 
+    public Result ChangeAppearance(string? color, string? icon)
+    {
+        if (color is not null && !Text.IsHexColor(color))
+        {
+            return CategoryErrors.InvalidColor;
+        }
+
+        Color = color;
+        Icon = Text.Clean(icon);
+        return Result.Success();
+    }
+
     public void ChangeSortOrder(int sortOrder) => SortOrder = sortOrder;
 
     private static Result<Category> CreateCore(

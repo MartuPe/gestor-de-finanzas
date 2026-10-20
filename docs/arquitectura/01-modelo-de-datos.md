@@ -85,7 +85,7 @@ Las tablas de unión (`LedgerMembers`, `TransactionTags`) no tienen `DeletedAt`.
 
 **Enums.** Se guardan como `varchar(20)` en snake_case (`TransactionKind.CardPayment` → `card_payment`), con un `CHECK` que lista los valores válidos. Se leen bien directo en la base y no se rompen si se reordena el enum.
 
-**Multiusuario.** Toda tabla raíz tiene `LedgerId`. El filtro global de EF Core por el libro del usuario autenticado se agrega junto con el login.
+**Multiusuario.** Toda tabla raíz tiene `LedgerId`, y EF Core aplica el filtro global con nombre `Ledger` con el libro de la sesión (02-backend §5).
 
 ---
 
@@ -97,7 +97,7 @@ Las tablas de unión (`LedgerMembers`, `TransactionTags`) no tienen `DeletedAt`.
 | `Email` | `nvarchar(256)` | no | UNIQUE |
 | `DisplayName` | `nvarchar(100)` | no | |
 
-> Es la tabla de usuarios de ASP.NET Core Identity (`AppUser : IdentityUser<Guid>`), con `DisplayName` como columna extra. Identity agrega sus propias tablas: passkeys, logins y tokens. Ver [02 · Backend §5](02-backend.md#5-seguridad-y-login).
+> Es la tabla de usuarios de ASP.NET Core Identity (`AppUser : IdentityUser<Guid>`), con `DisplayName` como columna extra y los campos propios de Identity (hash de la contraseña, bloqueo, etc.). Identity agrega `UserClaims`, `UserLogins`, `UserTokens` y `UserPasskeys` (esquema 3). Las claves que firman la cookie de sesión van en `DataProtectionKeys`. Ver [02 · Backend §5](02-backend.md#5-seguridad-y-login).
 
 ### 4.2 `Ledgers`
 
@@ -114,7 +114,7 @@ Las tablas de unión (`LedgerMembers`, `TransactionTags`) no tienen `DeletedAt`.
 | Columna | Tipo | Null | Notas |
 |---|---|---|---|
 | `LedgerId` | `uniqueidentifier` | no | PK compuesta, FK |
-| `UserId` | `uniqueidentifier` | no | PK compuesta. La FK a `Users` se agrega junto con ASP.NET Core Identity |
+| `UserId` | `uniqueidentifier` | no | PK compuesta, FK a `Users` |
 | `Role` | `varchar(20)` | no | `owner` · `editor` · `viewer` |
 
 ### 4.4 `Currencies`

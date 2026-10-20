@@ -20,9 +20,20 @@ public class LayerTests
     public void Application_no_depende_de_Infrastructure_ni_de_la_Api() =>
         AssertNoDependencies(Application, Infrastructure, Api, EntityFramework, AspNetCore);
 
+    /// <summary>
+    /// Infrastructure puede usar los stores de Identity y de Data Protection (son persistencia),
+    /// pero nada de la capa web: eso es de la Api.
+    /// </summary>
     [Fact]
-    public void Infrastructure_no_depende_de_la_Api() =>
-        AssertNoDependencies(Infrastructure, Api, AspNetCore);
+    public void Infrastructure_no_depende_de_la_Api_ni_de_la_capa_web() =>
+        AssertNoDependencies(
+            Infrastructure,
+            Api,
+            "Microsoft.AspNetCore.Http",
+            "Microsoft.AspNetCore.Mvc",
+            "Microsoft.AspNetCore.Builder",
+            "Microsoft.AspNetCore.Routing",
+            "Microsoft.AspNetCore.Authentication");
 
     private static void AssertNoDependencies(string assemblyName, params string[] forbidden)
     {

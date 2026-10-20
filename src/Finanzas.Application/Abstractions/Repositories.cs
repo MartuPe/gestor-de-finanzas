@@ -16,13 +16,18 @@ namespace Finanzas.Application.Abstractions;
 public interface ILedgerRepository
 {
     Task<Ledger?> GetAsync(Guid id, CancellationToken cancellationToken);
+
+    void Add(Ledger ledger);
 }
 
 public interface IAccountRepository
 {
     Task<Account?> GetAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>Todas las cuentas del libro, incluidas las archivadas.</summary>
     Task<IReadOnlyList<Account>> ListAsync(Guid ledgerId, CancellationToken cancellationToken);
+
+    void Add(Account account);
 }
 
 public interface ICategoryRepository
@@ -30,13 +35,19 @@ public interface ICategoryRepository
     Task<Category?> GetAsync(Guid id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Category>> ListAsync(Guid ledgerId, CancellationToken cancellationToken);
+
+    void AddRange(IEnumerable<Category> categories);
 }
 
 public interface ITagRepository
 {
+    Task<Tag?> GetAsync(Guid id, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<Tag>> ListAsync(Guid ledgerId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Tag>> GetManyAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
+    void Add(Tag tag);
 }
 
 public interface IStatementRepository
@@ -66,6 +77,9 @@ public interface ITransactionRepository
     /// <summary>R7: lo que ya se generó para ese período, incluidos los movimientos borrados.</summary>
     Task<IReadOnlySet<GeneratedKey>> GetGeneratedKeysAsync(Guid ledgerId, Period period, CancellationToken cancellationToken);
 
+    /// <summary>Si la cuenta ya tiene saldo inicial en esa moneda (hay uno solo por cuenta y moneda).</summary>
+    Task<bool> HasOpeningAsync(Guid accountId, string currency, CancellationToken cancellationToken);
+
     void Add(Transaction transaction);
 
     void AddRange(IEnumerable<Transaction> transactions);
@@ -73,5 +87,11 @@ public interface ITransactionRepository
 
 public interface IRecurringTemplateRepository
 {
+    Task<RecurringTemplate?> GetAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<RecurringTemplate>> ListAsync(Guid ledgerId, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<RecurringTemplate>> ListActiveAsync(Guid ledgerId, CancellationToken cancellationToken);
+
+    void Add(RecurringTemplate template);
 }

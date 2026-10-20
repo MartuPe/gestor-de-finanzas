@@ -142,6 +142,20 @@ public class PersistenceTests(SqlServerFixture fixture)
     }
 
     [Fact]
+    public async Task El_filtro_por_libro_oculta_los_datos_de_otro_libro()
+    {
+        var mio = await TestLedger.CreateAsync(fixture, _ct);
+        var ajeno = await TestLedger.CreateAsync(fixture, _ct);
+
+        await using var db = fixture.CreateContext(new FixedLedger(mio.Ledger.Id));
+        var cuentas = await db.Accounts.Where(account => account.Id == mio.Banco.Id || account.Id == ajeno.Banco.Id).ToListAsync(_ct);
+        var libros = await db.Ledgers.Where(ledger => ledger.Id == mio.Ledger.Id || ledger.Id == ajeno.Ledger.Id).ToListAsync(_ct);
+
+        Assert.Equal(mio.Banco.Id, Assert.Single(cuentas).Id);
+        Assert.Equal(mio.Ledger.Id, Assert.Single(libros).Id);
+    }
+
+    [Fact]
     public async Task Hay_una_sola_cotizacion_por_dia_y_casa()
     {
         await using var db = fixture.CreateContext();
@@ -173,6 +187,8 @@ public class PersistenceTests(SqlServerFixture fixture)
             new[] { data.Suscripciones }.ToDictionary(category => category.Id),
             [],
             new HashSet<GeneratedKey>());
+
+    private sealed record FixedLedger(Guid? LedgerId) : ILedgerScope;
 
     private static ExchangeRateRecord Blue(DateOnly fecha, decimal compra, decimal venta) => new()
     {

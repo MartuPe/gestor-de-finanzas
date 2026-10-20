@@ -143,58 +143,70 @@ Finanzas.Application/
 - Fechas en formato `yyyy-MM-dd`; períodos en formato `yyyy-MM`.
 - Los montos viajan como número JSON y **los totales siempre los calcula el back**: el front no suma plata.
 - Los errores salen como *ProblemDetails* (§8).
-- Documentación con OpenAPI nativo de .NET, navegable en `/scalar` en desarrollo. Del documento OpenAPI se genera el cliente TypeScript de la PWA.
+- Documentación con OpenAPI nativo de .NET, navegable en `/scalar` en desarrollo. Del documento OpenAPI se genera el cliente TypeScript de la PWA, así que cada endpoint declara su respuesta (`.Returns<T>()` / `.ReturnsCreated<T>()`), los períodos se documentan como texto `yyyy-MM` y los montos como números JSON estrictos (`"42000"` entre comillas es un 400).
 
 ### 3.2 Endpoints v1
 
+Los marcados con ✓ están implementados y probados en `Finanzas.Api.IntegrationTests`. Todo lo que no es `/api/auth/*` requiere sesión con un libro.
+
 | Área | Endpoint | Caso de uso |
 |---|---|---|
-| Sesión | `/api/auth/*` (Identity) | Registro y login con passkey, contraseña de respaldo, logout, `GET /api/auth/me` |
-| Libro | `GET` · `PUT /api/ledger/settings` | Moneda base, casa de referencia, zona horaria |
-| Mes | `GET /api/months/{yyyy-MM}` | **Pantalla principal**: disponible, compromisos y totales |
-| Cuentas | `GET /api/accounts` | Cuentas con sus saldos por moneda |
-| | `POST` · `PUT /api/accounts[/{id}]` · `POST /api/accounts/{id}/archive` | Alta, edición y archivado |
-| | `POST /api/accounts/{id}/reconcile` | Recibe `{ realBalance }` y genera el `adjustment` por la diferencia (R12) |
-| Crédito | `GET /api/credit-lines/debt?from=2026-10&months=6` | Acumulado mes a mes por tarjeta y de todas juntas |
-| | `GET /api/credit-lines/{id}/statements?from&to` | Resúmenes de una línea |
-| Resúmenes | `GET /api/statements/{id}` | Detalle con sus cuotas y totales por moneda |
-| | `PUT /api/statements/{id}/dates` | Fechas reales; reasigna cuotas (R5) |
-| | `POST /api/statements/{id}/payments` | Pago, en ARS o en USD (R6) |
-| Movimientos | `POST /api/expenses` | Gasto; en una cuenta de crédito genera cuotas |
-| | `POST /api/incomes` · `POST /api/yields` | Ingreso · rendimiento |
-| | `POST /api/transfers` | Transferencia entre cuentas, incluida la compra de dólares |
-| | `GET /api/transactions?from&to&accountId&categoryId&tagId&status&q` | Listado con filtros |
-| | `GET` · `PUT` · `DELETE /api/transactions/{id}` | Detalle, edición y borrado lógico |
-| | `POST /api/transactions/{id}/confirm` | Confirmar un previsto, con su monto y fecha reales |
-| | `PUT /api/transactions/{id}/installments` | Editar los montos de las cuotas (§4.11 del modelo) |
-| Fijos | CRUD `/api/recurring-templates` | Plantillas recurrentes |
-| Catálogos | CRUD `/api/categories` · `/api/tags` | |
-| Reportes | `GET /api/reports/spending?period=…&by=category\|tag&mode=due\|purchase` | Gasto por categoría o etiqueta (R10) |
-| | `GET /api/reports/cashflow?from&to` | Evolución de saldos y ahorro |
-| Cotizaciones | `GET /api/exchange-rates/latest` · `GET /api/exchange-rates?source&from&to` | |
+| Sesión ✓ | `GET` · `POST /api/auth/setup` | Configuración inicial: crea el único usuario y su libro, y deja la sesión iniciada. Después responde 409 (registro cerrado) |
+| | `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me` | Contraseña de respaldo, salir, datos de la sesión |
+| | `POST /api/auth/passkeys/creation-options` · `POST /api/auth/passkeys` | Registrar una passkey (con sesión iniciada) |
+| | `GET /api/auth/passkeys` · `DELETE /api/auth/passkeys/{credentialId}` | Listar y borrar passkeys |
+| | `POST /api/auth/passkeys/request-options` · `POST /api/auth/passkeys/login` | Entrar con una passkey |
+| Libro ✓ | `GET` · `PUT /api/ledger/settings` | Moneda base, casa de referencia, zona horaria |
+| Mes ✓ | `GET /api/months/{yyyy-MM}` | **Pantalla principal**: genera los fijos del mes y devuelve el disponible, los compromisos y los totales |
+| Cuentas ✓ | `GET /api/accounts` | Cuentas con su saldo confirmado y proyectado, por moneda |
+| | `POST /api/accounts` · `POST /api/accounts/credit` · `PUT /api/accounts/{id}` | Alta de cuentas de dinero y de crédito, edición |
+| | `POST /api/accounts/{id}/archive` · `/unarchive` · `/opening` | Archivar, desarchivar, saldo inicial |
+| | `POST /api/accounts/{id}/reconcile` | *Pendiente.* Recibe `{ realBalance }` y genera el `adjustment` por la diferencia (R12) |
+| Crédito ✓ | `GET /api/credit-lines/debt?from=2026-10&months=6` | Acumulado mes a mes por tarjeta y de todas juntas |
+| Resúmenes | `POST /api/statements/{id}/payments` ✓ | Pago, en ARS o en USD (R6) |
+| | `PUT /api/statements/{id}/dates` | *Pendiente.* Fechas reales; reasigna cuotas (R5) |
+| Movimientos ✓ | `POST /api/expenses` · `POST /api/incomes` · `POST /api/transfers` | Gasto (en crédito genera cuotas), ingreso, transferencia o compra de dólares |
+| | `GET /api/transactions?from&to&accountId&categoryId&tagId&status&page&pageSize` | Listado paginado, del más nuevo al más viejo |
+| | `GET /api/transactions/{id}` · `POST /api/transactions/{id}/confirm` | Detalle con cuotas; confirmar un previsto con monto y fecha reales |
+| | `PUT` · `DELETE /api/transactions/{id}` · `PUT /api/transactions/{id}/installments` · `POST /api/yields` | *Pendientes.* Edición, borrado lógico, cuotas, rendimientos |
+| Fijos ✓ | `GET` · `POST /api/recurring-templates` · `PUT /api/recurring-templates/{id}` | Alta, corrección y pausa |
+| Catálogos ✓ | `GET` · `POST /api/categories` · `PUT /api/categories/{id}` | Categorías (al crear el libro se cargan las de 01-modelo §4.9) |
+| | `GET /api/tags` · `PUT /api/tags/{id}` | Etiquetas: el `PUT` crea o actualiza, así se pueden crear al vuelo |
+| Reportes ✓ | `GET /api/reports/spending?period=…&by=category\|tag&mode=due\|purchase` | Gasto por categoría o etiqueta (R10) |
+| | `GET /api/reports/cashflow?from&to` | *Pendiente.* Evolución de saldos y ahorro |
+| Cotizaciones ✓ | `GET /api/exchange-rates/latest` | El dólar de hoy en todas las casas |
+
+**Formato:** JSON en `camelCase`; enums en snake_case como en la base (`"card_payment"`); períodos como `"2026-10"`; fechas `"2026-10-18"`. Las altas responden `201`, o `200` si el mismo pedido ya estaba guardado (idempotencia).
 
 ### 3.3 Ejemplo: `GET /api/months/2026-10`
 
 ```json
 {
   "period": "2026-10",
-  "available": { "ARS": 460000.00, "USD": -40.00, "unifiedArs": 397800.00 },
-  "liquidAtStart": { "ARS": 1800000.00, "USD": 0.00 },
-  "income": { "ARS": 0.00 },
-  "confirmedExpenses": { "ARS": 406000.00 },
-  "plannedPending": [
-    { "id": "…", "description": "Ahorro mensual", "amount": 800000.00, "currency": "ARS", "date": "2026-10-05" }
+  "baseCurrency": "ARS",
+  "available": { "ARS": 460000.00, "USD": -40.00 },
+  "availableUnified": 397800.00,
+  "missingRates": [],
+  "liquidAtStart": { "ARS": 1800000.00 },
+  "income": {},
+  "spent": { "ARS": 406000.00 },
+  "planned": [
+    { "transactionId": "…", "accountName": "Banco Supervielle", "date": "2026-10-05", "amount": -800000.00,
+      "currency": "ARS", "kind": "transfer", "description": "Ahorro mensual", "isOverdue": true }
   ],
   "statementsDue": [
-    { "creditLine": "Mastercard", "dueDate": "2026-10-06", "totals": { "ARS": 75000.00 }, "paid": false },
-    { "creditLine": "Patagonia", "dueDate": "2026-10-10", "totals": { "ARS": 50000.00, "USD": 40.00 }, "paid": false },
-    { "creditLine": "Mercado Crédito", "dueDate": "2026-10-10", "totals": { "ARS": 9000.00 }, "paid": false }
+    { "statementId": "…", "creditAccountName": "Mastercard", "period": "2026-10", "dueDate": "2026-10-05",
+      "charges": { "ARS": 75000.00 }, "outstanding": { "ARS": 75000.00 } },
+    { "statementId": "…", "creditAccountName": "Patagonia", "period": "2026-10", "dueDate": "2026-10-10",
+      "charges": { "ARS": 50000.00, "USD": 40.00 }, "outstanding": { "ARS": 50000.00, "USD": 40.00 } },
+    { "statementId": "…", "creditAccountName": "Mercado Crédito", "period": "2026-10", "dueDate": "2026-10-10",
+      "charges": { "ARS": 9000.00 }, "outstanding": { "ARS": 9000.00 } }
   ],
-  "rate": { "source": "blue", "sell": 1555.00, "date": "2026-10-18" }
+  "rates": [ { "currency": "USD", "source": "blue", "rateDate": "2026-10-18", "sell": 1555.00 } ]
 }
 ```
 
-> Los números salen de la hoja Octubre2026 del Excel. Como no hay dólares líquidos, los USD 40 de Claude quedan en `USD: -40`, y por R8b se restan del unificado al blue del día: 40 × 1.555 = 62.200. El Excel da 400.000 porque convierte con 1.500 fijo; con el blue da 397.800.
+> Los números salen de la hoja Octubre2026 del Excel y son los que verifica `MonthSummaryTests`. Como no hay dólares líquidos, los USD 40 de Claude quedan en `USD: -40`, y por R8b se restan del unificado al blue del día: 40 × 1.555 = 62.200. El Excel da 400.000 porque convierte con 1.500 fijo; con el blue da 397.800.
 
 ---
 
@@ -216,7 +228,7 @@ Así, un reintento por mala señal nunca duplica un gasto. Además, deja la base
 
 ### 4.3 Concurrencia optimista
 
-Cada `PUT` lleva el `rowVersion` que el cliente leyó. Si otro dispositivo modificó el registro en el medio, la respuesta es `409` con la versión actual, y la PWA ofrece recargar.
+Hoy EF Core detecta dos guardados simultáneos sobre el mismo registro (`RowVersion`) y la API responde `409` (`request.concurrency`). *Pendiente:* que cada `PUT` lleve el `rowVersion` que leyó el cliente, para detectar también ediciones hechas sobre datos viejos.
 
 ---
 
@@ -226,9 +238,11 @@ Cada `PUT` lleva el `rowVersion` que el cliente leyó. Si otro dispositivo modif
 - **Passkeys como método principal**, más mail + contraseña como respaldo y para recuperar la cuenta.
 - **El dominio importa.** Una passkey queda atada al dominio donde se registró: si después cambia el dominio, hay que volver a registrarla. Por eso conviene **definir el dominio definitivo antes de registrar la primera** (§12).
 - **Claves de Data Protection persistidas en la base** (`PersistKeysToDbContext`). Sin eso, cada vez que el contenedor arranca desde cero se invalidan las cookies, y la sesión se cerraría cada vez que la app se despierta.
-- **Registro cerrado:** solo se crea el primer usuario (owner) del libro. A futuro se suman miembros por invitación.
-- **Autorización:** todas las consultas filtran por el `LedgerId` del usuario actual, mediante un filtro global de EF Core. Los roles (`owner` / `editor` / `viewer`) se aplican con *policies*.
-- **Rate limiting** en los endpoints de login, con el limitador nativo de ASP.NET Core.
+- **Registro cerrado:** `POST /api/auth/setup` crea el único usuario y su libro (con las categorías iniciales) en una sola transacción. Después responde `409`. A futuro se suman miembros por invitación.
+- **Sesión:** cookie `finanzas.session` (`HttpOnly`, `Secure`, `SameSite=Strict`, 30 días con renovación). Sin sesión, la API responde `401`/`403` en lugar de redirigir. La cookie lleva el libro del usuario (claim `ledger_id`).
+- **Contraseña de respaldo:** mínimo 12 caracteres, sin reglas de composición (larga antes que rebuscada, como recomienda NIST SP 800-63B); 5 intentos fallidos bloquean 5 minutos. Los mensajes de Identity salen en castellano.
+- **Autorización:** los casos de uso acotan todo al libro de `ICurrentUser`, y además EF Core aplica el filtro global con nombre `Ledger` (vía `ILedgerScope`) a cuentas, categorías, etiquetas, movimientos, fijos y libros. Los roles (`owner` / `editor` / `viewer`) se aplicarán con *policies* cuando haya más de un miembro.
+- **Rate limiting** en configuración inicial, login y passkeys: 10 pedidos por minuto por IP (`RateLimiting:AuthPermitLimit`).
 - **Secretos:** `dotnet user-secrets` en desarrollo y *secrets* de Container Apps en producción.
 
 ---
@@ -290,7 +304,7 @@ En la capa gratuita, la app **escala a cero**: si nadie la usa, no hay proceso c
 | Arquitectura | NetArchTest | Las referencias permitidas de §2 |
 | Persistencia | EF Core + Testcontainers (SQL Server real en Docker) | Guardar y leer agregados completos, enums en snake_case, borrado lógico, `CHECK` y `UNIQUE` del modelo, concurrencia |
 | Casos de uso | Application + Infrastructure armadas como en la Api, contra el mismo SQL Server, con reloj fijo y DolarApi simulada | La pantalla de octubre 2026 contra la celda `K10` del Excel, idempotencia, gasto por categoría y etiqueta (R10), deuda por tarjeta, fijos a demanda, cotizaciones |
-| Integración | `WebApplicationFactory` + Testcontainers (SQL Server real en Docker) | Endpoints de punta a punta, `CHECK` / `UNIQUE`, idempotencia, concurrencia, filtros por libro |
+| Integración | `Finanzas.Api.IntegrationTests`: `WebApplicationFactory` + Testcontainers, una base nueva por test (el registro está cerrado) | Sesión y passkeys, 401 sin sesión, ProblemDetails con `code` y campos, JSON tal como viaja, de punta a punta de un gasto en cuotas a la pantalla del mes, OpenAPI |
 | Test de oro | Importador + comparación | El disponible de cada mes contra la celda `K` del Excel, salvo en los meses afectados por la §8 del modelo |
 
 ---

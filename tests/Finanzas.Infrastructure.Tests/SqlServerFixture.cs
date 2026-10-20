@@ -31,11 +31,14 @@ public sealed class SqlServerFixture : IAsyncLifetime
         await db.Database.MigrateAsync();
     }
 
-    public FinanzasDbContext CreateContext() =>
-        new(new DbContextOptionsBuilder<FinanzasDbContext>()
-            .UseSqlServer(ConnectionString)
-            .AddInterceptors(new AuditInterceptor(TimeProvider.System))
-            .Options);
+    /// <param name="ledgerScope">Con un libro, el contexto aplica el filtro global por libro, como en la Api.</param>
+    public FinanzasDbContext CreateContext(ILedgerScope? ledgerScope = null) =>
+        new(
+            new DbContextOptionsBuilder<FinanzasDbContext>()
+                .UseSqlServer(ConnectionString)
+                .AddInterceptors(new AuditInterceptor(TimeProvider.System))
+                .Options,
+            ledgerScope);
 
     public ValueTask DisposeAsync() => _container.DisposeAsync();
 }

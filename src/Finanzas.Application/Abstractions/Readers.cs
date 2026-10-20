@@ -93,3 +93,49 @@ public enum SpendingMode
 /// <param name="GroupId">La categoría o la etiqueta; null para "sin categoría" o "sin etiqueta".</param>
 /// <param name="Amount">Lo gastado, en positivo.</param>
 public sealed record SpendingRow(Guid? GroupId, Money Amount);
+
+public interface IAccountReader
+{
+    /// <summary>R1: el saldo de cada cuenta del libro, por moneda.</summary>
+    Task<IReadOnlyDictionary<Guid, AccountBalance>> GetBalancesAsync(Guid ledgerId, CancellationToken cancellationToken);
+}
+
+/// <param name="Confirmed">Suma de los movimientos confirmados. En una cuenta de crédito es la deuda, en negativo.</param>
+/// <param name="Projected">Lo mismo, sumando además los previstos.</param>
+public sealed record AccountBalance(MoneyBag Confirmed, MoneyBag Projected);
+
+public interface ITransactionReader
+{
+    Task<TransactionPage> ListAsync(Guid ledgerId, TransactionFilter filter, CancellationToken cancellationToken);
+}
+
+/// <param name="Page">Empieza en 1.</param>
+public sealed record TransactionFilter(
+    DateOnly From,
+    DateOnly To,
+    Guid? AccountId,
+    Guid? CategoryId,
+    Guid? TagId,
+    TransactionStatus? Status,
+    int Page,
+    int PageSize);
+
+/// <param name="Total">Cuántos movimientos cumplen el filtro, sin paginar.</param>
+public sealed record TransactionPage(IReadOnlyList<TransactionListItem> Items, int Total);
+
+/// <param name="Installments">Cantidad de cuotas, si es una compra a crédito.</param>
+public sealed record TransactionListItem(
+    Guid Id,
+    DateOnly Date,
+    Guid AccountId,
+    string AccountName,
+    TransactionKind Kind,
+    TransactionStatus Status,
+    decimal Amount,
+    string Currency,
+    Guid? CategoryId,
+    string? CategoryName,
+    string? Description,
+    Guid? TransferGroupId,
+    IReadOnlyList<Guid> TagIds,
+    int? Installments);

@@ -11,22 +11,24 @@ App personal de finanzas que reemplaza el Excel `OrganizadorEconómico 2.xlsx` (
 - `docs/arquitectura/01-modelo-de-datos.md`: tablas (§4), **reglas R1–R12 (§5)**, migración del Excel (§7), errores del Excel (§8).
 - `docs/arquitectura/02-backend.md`: capas (§2), endpoints planificados (§3.2), seguridad (§5), jobs (§6), persistencia (§7), errores→HTTP (§8), tests (§9), deploy (§10).
 
-## 2. Estado (al 2026-10-19)
+## 2. Estado (al 2026-10-20)
 
 | Capa | Estado |
 |---|---|
 | Domain | ✅ Completo (R1–R12 menos las de consulta). |
-| Infrastructure | ✅ EF Core 10, migración `Initial`, repos, lectores SQL, cliente DolarApi. |
-| Application | ✅ 6 comandos + 3 consultas + `ExchangeRateService` (ver §4). Faltan los de catálogo (§8). |
-| Api | ⏳ Solo `/health`, más el registro de `AddApplication()` y `AddInfrastructure()`. |
+| Infrastructure | ✅ EF Core 10, migraciones `Initial` e `Identity` (las dos aplicadas en la base local), repos, lectores SQL, cliente DolarApi, Identity. |
+| Application | ✅ Movimientos, consultas, catálogo (libro, cuentas, categorías, etiquetas, fijos) y cotizaciones (ver §4). |
+| Api | ✅ Endpoints de 02 §3.2 (los marcados ✓), login con contraseña y passkeys, registro cerrado, filtro global por libro. |
 | Front | ⏳ No empezado. Hay que diseñarlo con la persona dueña del proyecto antes de codear. |
 
 - **Commits en `main`, sincronizada con `origin`** (repo privado `github.com/MartuPe/gestor-de-finanzas`):
   - `10374b0` dominio
   - `fede281` infraestructura
   - `8614739` application
-- **Tests: 103 en verde.** Domain 73, Architecture 3, Infrastructure 27 (7 de persistencia y 20 de casos de uso).
-- **Próximo paso acordado:** la Api (endpoints, login con passkeys, casos de uso de catálogo). Antes de arrancar, confirmarlo con Martu.
+  - `13bc060` CLAUDE.md
+  - La etapa de la Api (catálogo, Identity, endpoints) todavía **sin commitear**.
+- **Tests: 124 en verde** (~30 s). Domain 73, Architecture 3, Infrastructure 36 (8 de persistencia y 28 de casos de uso), Api 12.
+- **Próximo paso:** el front PWA (backlog §8.1), empezando por debatir el diseño. Antes de arrancar, confirmarlo con Martu.
 
 ## 3. Comandos
 
@@ -89,6 +91,21 @@ dotnet ef migrations has-pending-model-changes --project src/Finanzas.Infrastruc
   - `ExchangeRateStore`: usa su propio scope de DbContext, para no guardar de paso cambios del pedido.
 - `DependencyInjection.AddInfrastructure(config)`.
 
+**Api (`src/Finanzas.Api/`)**: los endpoints son finos: llaman al handler y devuelven `ToHttp()` / `ToCreatedHttp()`.
+- `Program.cs`: `AddApplication` + `AddInfrastructure` + `AddAppAuthentication` + `AddAppHttp`. Bajo `/api`, solo `/auth/*` es público; el resto exige la política `Ledger` (sesión con claim `ledger_id`). OpenAPI (`/openapi/v1.json`) y Scalar (`/scalar`) fuera de producción.
+- `Auth/`:
+  - `CurrentUser`: `ICurrentUser` + `ILedgerScope` a partir de los claims.
+  - `AuthSetup`: cookie `finanzas.session` (401/403 sin redirigir), `AddIdentityPersistence().AddSignInManager()`, rate limit `auth`.
+  - `AuthEndpoints`: setup, login, logout, me, passkeys (alta, listado, baja, ingreso).
+  - `AuthContracts`: cuerpos y respuestas de sesión.
+- `Endpoints/`: `CatalogEndpoints`, `MovementEndpoints`, `ReportEndpoints`, y `EndpointRequests` (cuerpos de los pedidos con Id en la ruta).
+- `Http/`:
+  - `ResultHttpExtensions`: `ErrorType` → 400/404/409/422/503 como ProblemDetails con `code`; los campos de validación en camelCase. `Returns<T>()` / `ReturnsCreated<T>()` documentan el cuerpo en OpenAPI.
+  - `QueryValues`: enums y períodos en ruta y query.
+  - `PeriodJsonConverter` y `HttpSetup` (enums snake_case, números estrictos, OpenAPI con `Period` en línea como texto `yyyy-MM`).
+
+**Identity (en Infrastructure, `Identity/`)**: `AppUser` (tabla `Users`), `AppClaims`, `AppClaimsPrincipalFactory` (agrega `ledger_id`), `OwnerSetup` (usuario + libro en una transacción), `AuthErrors`, `LocalizedIdentityErrorDescriber` (mensajes en castellano). `AddIdentityPersistence()` registra todo eso; el esquema 3 lo fija `AddInfrastructure()`. `FinanzasDbContext` hereda de `IdentityUserContext<AppUser, Guid>` e implementa `IDataProtectionKeyContext`.
+
 **Tests (`tests/`)**: nombres en español con guiones bajos, casos sacados del Excel.
 - `Finanzas.Domain.Tests`: `Fixtures.cs` con cuentas tipo Excel.
 - `Finanzas.Architecture.Tests`: NetArchTest, controla las referencias entre capas.
@@ -96,11 +113,14 @@ dotnet ef migrations has-pending-model-changes --project src/Finanzas.Infrastruc
   - `SqlServerFixture`: Testcontainers + `[assembly: AssemblyFixture]`.
   - `TestLedger`: libro con todas las cuentas y categorías.
   - `UseCases/App.cs`: arma la app como la Api, con `FakeTimeProvider` en el **18/10/2026 15:00 AR** y `FakeRateSource`.
+  - `TestUsers`: los dueños de los libros tienen que existir en `Users` (FK de `LedgerMembers`).
+- `Finanzas.Api.IntegrationTests`: `TestApi` levanta la Api con `WebApplicationFactory` en el entorno `Testing` (sin user-secrets), sobre **una base nueva por test** (el registro está cerrado; `SqlServerFixture.NewDatabaseAsync` la migra antes de arrancar), cliente HTTPS con cookies, reloj fijo y sin DolarApi. Las respuestas se leen como `JsonElement`: prueban el JSON tal cual viaja. Los helpers fallan mostrando el cuerpo del error.
 
 ## 5. Convenciones (respetarlas)
 
 - **Idioma:** identificadores en inglés; comentarios, XML docs, mensajes de error y nombres de tests en español rioplatense. Los errores llevan `code` estable (`area.motivo`).
-- **Un tipo por archivo.** Excepciones: los contratos agrupados en `Abstractions/Repositories.cs` y `Readers.cs`, y algunos records de respuesta chicos junto a su respuesta principal.
+- **Un tipo por archivo.** Excepciones: los contratos agrupados en `Abstractions/Repositories.cs` y `Readers.cs`, los cuerpos HTTP en `Api/Auth/AuthContracts.cs` y `Api/Endpoints/EndpointRequests.cs`, y algunos records de respuesta chicos junto a su respuesta principal.
+- **Casos de uso nuevos:** carpeta con Command/Query + Validator + Response + Handler; registrar el handler en `AddApplication()`, el endpoint en el `*Endpoints.cs` del área (con `.Returns<T>()` o `.ReturnsCreated<T>()`) y un test en `UseCases/` o en la Api.
 - **Dinero:**
   - Montos con signo en los movimientos.
   - Los comandos reciben montos en positivo; los validadores impiden que `Money` reciba algo inválido.
@@ -142,31 +162,31 @@ dotnet ef migrations has-pending-model-changes --project src/Finanzas.Infrastruc
 - **Los días de cierre y vencimiento de los fixtures son supuestos de test,** no datos reales: Visa y Mastercard 28/5, Patagonia 28/10, Mercado Crédito vence el 10.
 - **`gh` no está instalado:** git usa HTTPS con Git Credential Manager.
 - **Hay otras instancias de SQL Server locales** (MARTU, SQLEXPRESS) que **no** se usan para este proyecto.
+- **Docker Desktop no arranca desde las herramientas de Claude** (`Start-Process` y `docker desktop start` no alcanzan después de reiniciar la PC). Pedirle a Martu que lo abra. Sin Docker no corren los tests de Infrastructure ni de la Api.
+- **`dotnet ef` levanta la Api en Development**, que valida todo el DI al construir: si falta registrar un servicio, no genera la migración.
+- **Identity:**
+  - Elige el esquema (el 3 trae passkeys) leyendo `IdentityOptions` del contenedor de la app: sobrescribir `SchemaVersion` **no sirve**, porque `OnModelCreating` no lo usa. `AddInfrastructure` registra la opción, y si el contexto se crea sin DI (tests), `FinanzasDbContext.OnConfiguring` usa un contenedor mínimo con ella. Síntoma si falta: "IdentityPasskeyData requires a primary key".
+  - Por defecto exige mayúscula, minúscula y dígito: acá solo largo (02 §5).
+  - La API de passkeys se copió de la plantilla oficial (`dotnet new blazor --auth Individual`).
+- **El filtro `Ledger`** se arma con `Expression.Constant(this)` sobre `CurrentLedgerId`: EF lo reevalúa por contexto. Sin `ILedgerScope` (tests, migraciones, login) no restringe.
+- **Tests de la Api:**
+  - Cliente con base `https://localhost` (la cookie es `Secure`) y `RateLimiting:AuthPermitLimit` alto.
+  - La base tiene que existir **antes** de levantar la Api: al arrancar, Data Protection lee sus claves y `EnableRetryOnFailure` trata "Cannot open database" como transitorio. Si no existe, el arranque tarda ~100 s y la suite parece colgada.
+- **OpenAPI (.NET 10):** un endpoint que devuelve `IResult` no documenta su cuerpo (por eso `Returns<T>()`). El transformador de esquemas ve las propiedades pero no el componente al que apuntan, así que `Period` va en línea (`CreateSchemaReferenceId` → null) y se cubre también `Period?`.
+- **Argentina tuvo horario de verano hasta marzo de 2009** (UTC−2): las fechas al azar de los tests arrancan en 2010.
+- **Levantar la Api a mano:** `ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Finanzas.Api` (con `--no-launch-profile`, `--environment` no alcanza y no carga los user-secrets).
 
 ## 8. Backlog (en orden)
 
-1. **Api:**
-   - Minimal APIs según 02 §3.2.
-   - Mapeo `ErrorType` → HTTP: 400 con `Fields`, 404, 409, 422 y 503 para Unavailable.
-   - OpenAPI + Scalar.
-   - `ICurrentUser` a partir de la sesión.
-   - `GET /months/{p}` llama a `GenerateRecurring` y después a `GetMonthSummary`.
-2. **Identity + passkeys:**
-   - `AppUser : IdentityUser<Guid>` → tabla `Users`, más la FK `LedgerMembers.UserId`.
-   - Filtro global `Ledger`.
-   - Claves de Data Protection en la base, rate limiting y registro cerrado.
-   - Revisar el test de arquitectura si Infrastructure pasa a usar `Microsoft.AspNetCore.Identity.EntityFrameworkCore`.
-3. **Catálogo:** crear y editar libro, cuentas (incluido crédito), categorías, etiquetas, plantillas de fijos y saldo inicial (`opening`).
-4. **Reglas con el dominio listo pero sin caso de uso:**
-   - `UpdateStatementDates` (R5: `Statement.ChangeDates` + `InstallmentScheduler.Reschedule`).
-   - `EditInstallments`.
-   - `ReconcileAccount` (`Transaction.CreateReconciliation`).
-   - Registrar devoluciones y rendimientos.
-   - `GetCashflow`.
-5. **Jobs:** el diario (cotizaciones + fijos) y el backfill de ArgentinaDatos desde 2025-09-01.
-6. **Importador del Excel** (01 §7 y §8) y el test de oro contra las celdas `K` de cada mes.
-7. **Front PWA:** primero debatir el diseño (Martu no quiere un "diseño típico de IA").
-8. **CI/CD** con GitHub Actions y deploy a Azure (02 §10).
+1. **Front PWA:** el próximo paso grande. Primero debatir el diseño (Martu no quiere un "diseño típico de IA"). La PWA se sirve desde la misma Api (02 §4.1).
+2. **Lo que falta de la Api** (02 §3.2, los marcados *Pendiente*):
+   - Conciliar saldo (`Transaction.CreateReconciliation`) y fechas reales de un resumen (R5: `Statement.ChangeDates` + `InstallmentScheduler.Reschedule`).
+   - Editar cuotas (`EditInstallmentAmounts`), editar y borrar movimientos, registrar rendimientos y devoluciones.
+   - `GET /reports/cashflow`.
+   - `rowVersion` en los `PUT` (02 §4.3) y archivar o borrar categorías y etiquetas.
+3. **Jobs:** el diario (cotizaciones + fijos) y el backfill de ArgentinaDatos desde 2025-09-01.
+4. **Importador del Excel** (01 §7 y §8) y el test de oro contra las celdas `K` de cada mes.
+5. **CI/CD** con GitHub Actions y deploy a Azure (02 §10). Definir el dominio **antes** de registrar passkeys reales.
 
 **Datos pendientes de Martu:**
 - Nombre de la app (hoy se usa `Finanzas`).
