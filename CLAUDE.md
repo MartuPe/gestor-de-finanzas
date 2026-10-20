@@ -26,7 +26,7 @@ App personal de finanzas que reemplaza el Excel `OrganizadorEconómico 2.xlsx` (
   - `fede281` infraestructura
   - `8614739` application
   - `13bc060` CLAUDE.md
-  - La etapa de la Api (catálogo, Identity, endpoints) todavía **sin commitear**.
+  - `d11e652` api (catálogo, Identity, endpoints)
 - **Tests: 124 en verde** (~30 s). Domain 73, Architecture 3, Infrastructure 36 (8 de persistencia y 28 de casos de uso), Api 12.
 - **Próximo paso:** el front PWA (backlog §8.1), empezando por debatir el diseño. Antes de arrancar, confirmarlo con Martu.
 
